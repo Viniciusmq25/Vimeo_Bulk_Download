@@ -1,133 +1,153 @@
 # Vimeo Bulk Downloader
 
-Este repositório contém um script em Python que faz o download em massa de todos os vídeos de uma conta do Vimeo. Ele percorre automaticamente todas as pastas ("Projects") e também os vídeos que não pertencem a nenhuma pasta, escolhe o melhor arquivo MP4 disponível para cada vídeo e salva um arquivo JSON com os metadados correspondentes.
+This repository ships two Python utilities that interact with the Vimeo API:
 
-## ✨ Recursos principais
+- `vimeo_bulk_download.py`: downloads every video in your account, mirrors the folder hierarchy, picks the best available media file, and stores JSON sidecar metadata.
+- `vimeo_folder_structure.py`: prints the full folder/video tree in the terminal so you can inspect the account layout before starting a backup.
 
-- Autenticação via token pessoal do Vimeo.
-- Paginação automática da API para cobrir todos os vídeos.
-- Escolha do melhor arquivo disponível (progressivo ou download direto).
-- Criação de estrutura de pastas espelhando os "Projects" do Vimeo.
-- Retomada automática de downloads interrompidos (range requests).
-- Geração de metadados em JSON ao lado de cada vídeo baixado.
-- Opção `--overwrite` para forçar sobrescrita de arquivos existentes.
+Both scripts authenticate with Vimeo personal access tokens and share pagination/auth helpers.
 
-## 📋 Pré-requisitos
+## ✨ Key Features
 
-- Python 3.8 ou superior instalado.
-- Token pessoal (Personal Access Token) do Vimeo com os escopos `public`, `private` e `video_files`.
-- Dependências Python:
+- Personal access token authentication against Vimeo.
+- Automatic API pagination to iterate through the entire library.
+- Smart selection of the best available file (progressive MP4 or direct download).
+- Folder structure mirrored locally to match Vimeo Projects.
+- Automatic resume for interrupted downloads (HTTP range requests).
+- Per-video JSON metadata written next to each media file.
+- `--overwrite` flag to rebuild existing files when required.
+- Companion script for folder exploration (`vimeo_folder_structure.py`).
+
+## 📋 Prerequisites
+
+- Python 3.8 or newer.
+- Vimeo Personal Access Token with scopes `public`, `private`, and `video_files`.
+- Python dependencies:
   - `requests`
   - `tqdm`
   - `tenacity`
 
-Você pode instalá-las diretamente com:
+Install them with:
 
 ```powershell
 python -m pip install --upgrade pip
 python -m pip install requests tqdm tenacity
 ```
 
-> **Dica:** considere criar um ambiente virtual (`python -m venv .venv`) antes de instalar as dependências.
+> **Tip:** consider creating a virtual environment first (`python -m venv .venv`).
 
-## 🔐 Configurando o token do Vimeo
+## 🔐 Setting the Vimeo Token
 
-1. Acesse [https://developer.vimeo.com/apps](https://developer.vimeo.com/apps) e crie um **Personal Access Token** com os escopos `public`, `private` e `video_files`.
-2. Guarde o token gerado; ele será utilizado para autenticação nas chamadas da API.
-3. Defina a variável de ambiente `VIMEO_TOKEN` para que o script possa usá-la automaticamente. Em um terminal PowerShell:
+1. Go to [https://developer.vimeo.com/apps](https://developer.vimeo.com/apps) and create a Personal Access Token with scopes `public`, `private`, and `video_files`.
+2. Store the token securely; you will need it for API calls.
+3. Expose it via the `VIMEO_TOKEN` environment variable so the scripts can read it automatically. In PowerShell:
 
 ```powershell
-# Somente para a sessão atual
-$env:VIMEO_TOKEN = "seu_token_aqui"
+# Session-only
+$env:VIMEO_TOKEN = "your_token_here"
 
-# Opcional: persistir para todas as sessões futuras
-setx VIMEO_TOKEN "seu_token_aqui"
+# Optional: persist for future sessions
+setx VIMEO_TOKEN "your_token_here"
 ```
 
-## 🚀 Como executar
+## 🚀 Running the Bulk Downloader
 
-O script possui help integrado. Para consultá-lo:
+Use the built-in help to explore all options:
 
 ```powershell
 python vimeo_bulk_download.py --help
 ```
 
-### Exemplo básico
+### Basic example
 
-Se a variável de ambiente `VIMEO_TOKEN` estiver configurada:
+With `VIMEO_TOKEN` already set:
 
 ```powershell
 python vimeo_bulk_download.py --out "D:\Backup\Vimeo"
 ```
 
-### Informando o token pela linha de comando
+### Provide the token on the command line
 
 ```powershell
-python vimeo_bulk_download.py --token "seu_token_aqui" --out "D:\Backup\Vimeo"
+python vimeo_bulk_download.py --token "your_token_here" --out "D:\Backup\Vimeo"
 ```
 
-### Forçando sobrescrita de arquivos
+### Force overwriting existing files
 
 ```powershell
 python vimeo_bulk_download.py --out "D:\Backup\Vimeo" --overwrite
 ```
 
-#### Parâmetros disponíveis
+#### Available parameters
 
-- `--out PATH` (opcional): caminho de saída dos downloads. Se não informado, usa o caminho padrão configurado no script.
-- `--token TOKEN` (opcional): token do Vimeo. Se omitido, o script tenta ler `VIMEO_TOKEN`.
-- `--overwrite`: sobrescreve arquivos existentes com o mesmo nome.
+- `--out PATH` (optional): output directory. Defaults to the script's configured path.
+- `--token TOKEN` (optional): Vimeo token. Falls back to `VIMEO_TOKEN` if omitted.
+- `--overwrite`: replace files that already exist.
 
-## 🗂️ Estrutura de saída
+### Listing the folder tree without downloading
 
-- Cada pasta (Project) do Vimeo vira uma subpasta dentro do diretório escolhido.
-- Vídeos fora de pastas vão direto para o diretório raiz de saída.
-- Para cada vídeo baixado, um arquivo `nome_do_video.ext` e um `nome_do_video.ext.json` com os metadados são criados.
+Use the helper script to inspect your projects:
 
-## 🧠 Comportamento e boas práticas
+```powershell
+python vimeo_folder_structure.py --token "your_token_here"
+```
 
-- **Paginação da API:** o script busca 50 itens por página (limite seguro da API) e segue até o fim.
-- **Retentativas automáticas:** chamadas HTTP e downloads usam `tenacity` para repetir em caso de falha temporária ou *rate limiting* (`HTTP 429`).
-- **Retomada de download:** se um arquivo parcial existir, o download continua de onde parou.
-- **Seleção do melhor arquivo:** prioriza arquivos progressivos MP4 com maior resolução/bitrate. Caso não existam, usa o melhor link alternativo disponível.
+Useful parameters:
 
-## 🛠️ Solução de problemas
+- `--token TOKEN`: same behavior as the main script; uses `VIMEO_TOKEN` when missing.
+- `--folders-only`: hide videos and print folder names only.
 
-| Sintoma | Possível causa | Ação sugerida |
+## 🗂️ Output layout
+
+- Each Vimeo Project becomes a subdirectory inside the target folder.
+- Videos without a folder land in the root of the output directory.
+- Every video produces `video_name.ext` plus `video_name.ext.json` containing the metadata.
+
+## 🧠 Behavior and best practices
+
+- **API pagination:** fetches 50 items per request (safe Vimeo limit) until the end.
+- **Automatic retries:** HTTP calls and downloads rely on `tenacity` to recover from transient issues or rate limiting (`HTTP 429`).
+- **Download resume:** partially downloaded files continue from where they stopped.
+- **Best file selection:** prioritizes progressive MP4 streams with the highest resolution/bitrate; falls back to the best alternative link.
+
+## 🛠️ Troubleshooting
+
+| Symptom | Likely cause | Suggested action |
 | --- | --- | --- |
-| `Error: provide --token or set VIMEO_TOKEN` | Token não fornecido | Passe `--token` ou defina a variável `VIMEO_TOKEN`. |
-| `401 Unauthorized` | Token inválido ou escopos insuficientes | Gere um token novo com os escopos corretos. |
-| `Rate limited; retrying` | Muitas requisições em pouco tempo | Aguarde; o script respeita o `Retry-After` automaticamente. |
-| Downloads que param no meio | Queda de conexão | O script retoma do ponto em que parou; apenas execute novamente. |
-| Arquivos duplicados não sobrescritos | `--overwrite` não usado | Adicione `--overwrite` para forçar a substituição. |
+| `Error: provide --token or set VIMEO_TOKEN` | Token missing | Pass `--token` or set `VIMEO_TOKEN`. |
+| `401 Unauthorized` | Invalid token or wrong scopes | Generate a fresh token with the correct scopes. |
+| `Rate limited; retrying` | Too many requests in a short window | Wait; the script honors `Retry-After` automatically. |
+| Downloads stop halfway | Connection drops | Run the script again; it resumes from the last byte. |
+| Duplicate files remain | `--overwrite` not provided | Add `--overwrite` to replace existing files. |
 
-## ✅ Checklist rápido antes de rodar
+## ✅ Quick checklist before running
 
-- [ ] Python 3.8+ instalado
-- [ ] Dependências instaladas (`pip install requests tqdm tenacity`)
-- [ ] Token do Vimeo com escopos `public`, `private`, `video_files`
-- [ ] Variável `VIMEO_TOKEN` definida ou token passado por parâmetro
-- [ ] Diretório de saída com espaço suficiente
+- [ ] Python 3.8+ installed
+- [ ] Dependencies installed (`pip install requests tqdm tenacity`)
+- [ ] Vimeo token with `public`, `private`, `video_files`
+- [ ] `VIMEO_TOKEN` exported or `--token` ready
+- [ ] Destination folder with enough free space
 
-## 📦 Estrutura do projeto
+## 📦 Project layout
 
-```
+```text
 Vimeo_API/
-├── vimeo_bulk_download.py   # Script principal
-├── videos/                  # Pasta opcional para armazenar downloads
-└── README.md                # Este arquivo
+├── vimeo_bulk_download.py      # Main download script
+├── vimeo_folder_structure.py   # Utility that prints the project tree
+├── videos/                     # Optional directory for downloads
+└── README.md                   # This file
 ```
 
-## 🧭 Próximos passos sugeridos
+## 🧭 Suggested next steps
 
-- Criar um arquivo `requirements.txt` para facilitar a instalação das dependências.
-- Adicionar testes automatizados (por exemplo, mocks da API) para garantir a estabilidade.
-- Embalar o script como CLI (`pipx`/`setuptools`) para distribuição mais simples.
+- Create a `requirements.txt` to simplify dependency installation.
+- Add automated tests (e.g., mocked API responses) for better stability.
+- Package the script as a CLI (`pipx`/`setuptools`) for easier distribution.
 
-## 📄 Licença
+## 📄 License
 
-Nenhuma licença foi declarada neste repositório até o momento. Adicione uma licença ao seu critério se for distribuir o script.
+No license has been defined yet. Add one before distributing the scripts.
 
-## 🙋‍♂️ Suporte
+## 🙋‍♂️ Support
 
-Encontrou um problema ou tem uma sugestão? Abra uma *issue* descrevendo o cenário e, se possível, inclua trechos de logs exibidos no terminal.
+Found a bug or have an idea? Open an issue describing the scenario and include terminal logs when possible.

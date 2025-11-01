@@ -16,7 +16,7 @@ Auth:
         export VIMEO_TOKEN="your_token_here"
 
 Usage:
-  python vimeo_bulk_download.py --out "G:\\Drives compartilhados\\Tecnologia\\Backup\\Backup Vimeo (script vinicius quintian)"
+  python vimeo_bulk_download.py --out "./vimeo_backup"
 
 Notes:
   - Respects pagination; retries on transient network errors.
@@ -43,7 +43,7 @@ from tqdm import tqdm
 
 API = "https://api.vimeo.com"
 PAGE_SIZE = 50  # Vimeo API max is typically 100; 50 is a safe default
-DEFAULT_OUTPUT_DIR = Path(r"G:\\Drives compartilhados\\Tecnologia\\Backup\\Backup Vimeo (script vinicius quintian)")
+DEFAULT_OUTPUT_DIR = Path("./vimeo_backup")
 
 class VimeoError(Exception):
     pass
@@ -85,12 +85,12 @@ def paginate(url: str, headers: Dict[str, str], query: Dict[str, str] | None = N
             url = f"{API}{next_url}"
         params = None
 
-def extrair_id(uri: Optional[str]) -> str:
+def extract_vimeo_id(uri: Optional[str]) -> str:
     if not uri:
         return "?"
     return uri.rstrip("/").split("/")[-1]
 
-def montar_mapa_pastas(headers: Dict[str, str]) -> Dict[Optional[str], List[Dict]]:
+def build_folder_hierarchy(headers: Dict[str, str]) -> Dict[Optional[str], List[Dict]]:
     """Constrói hierarquia de pastas usando parent_folder da API."""
     todos = list(
         paginate(
@@ -102,7 +102,7 @@ def montar_mapa_pastas(headers: Dict[str, str]) -> Dict[Optional[str], List[Dict
     
     mapa: Dict[Optional[str], List[Dict]] = {}
     for folder in todos:
-        folder_id = extrair_id(folder.get("uri"))
+        folder_id = extract_vimeo_id(folder.get("uri"))
         folder["_id"] = folder_id
         
         connections = folder.get("metadata", {}).get("connections")
@@ -117,7 +117,7 @@ def montar_mapa_pastas(headers: Dict[str, str]) -> Dict[Optional[str], List[Dict
             parent_info = parent_info[0] if parent_info else {}
         
         parent_uri = parent_info.get("uri") if isinstance(parent_info, dict) else None
-        parent_id = extrair_id(parent_uri) if parent_uri else None
+        parent_id = extract_vimeo_id(parent_uri) if parent_uri else None
         folder["_parent_id"] = parent_id
         
         mapa.setdefault(parent_id, []).append(folder)
@@ -246,7 +246,7 @@ def main():
     outdir.mkdir(parents=True, exist_ok=True)
 
     print("Fetching folder hierarchy ...")
-    mapa = montar_mapa_pastas(headers)
+    mapa = build_folder_hierarchy(headers)
     seen_video_uris = set()
 
     def process_video(video: Dict, subdir: Path):
@@ -281,32 +281,32 @@ def main():
         with open(meta_path, 'w', encoding='utf-8') as m:
             json.dump(video, m, ensure_ascii=False, indent=2)
 
-    def processar_pasta(pasta: Dict, caminho_base: Path, visitados: set):
-        uri = pasta.get("uri")
-        if not uri or uri in visitados:
+    def process_folder(folder: Dict, base_path: Path, visited: set):
+        uri = folder.get("uri")
+        if not uri or uri in visited:
             return
-        visitados.add(uri)
-        
-        nome = safe_filename(pasta.get("name") or f"pasta_{extrair_id(uri)}")
-        caminho_pasta = caminho_base / nome
-        
-        print(f"\n== Pasta: {caminho_pasta.relative_to(outdir)} ==")
-        
+        visited.add(uri)
+
+        name = safe_filename(folder.get("name") or f"folder_{extract_vimeo_id(uri)}")
+        folder_path = base_path / name
+
+        print(f"\n== Pasta: {folder_path.relative_to(outdir)} ==")
+
         # Baixa vídeos da pasta atual
         for vid in list_project_videos(uri, headers):
-            process_video(vid, caminho_pasta)
-        
-        # Processa subpastas recursivamente
-        folder_id = pasta.get("_id")
-        subpastas = mapa.get(folder_id, [])
-        for sub in sorted(subpastas, key=lambda x: x.get("name", "").lower()):
-            processar_pasta(sub, caminho_pasta, visitados)
+            process_video(vid, folder_path)
 
-    visitados_pastas = set()
-    pastas_raiz = sorted(mapa.get(None, []), key=lambda x: x.get("name", "").lower())
-    
-    for pasta in pastas_raiz:
-        processar_pasta(pasta, outdir, visitados_pastas)
+        # Processa subpastas recursivamente
+        folder_id = folder.get("_id")
+        subfolders = mapa.get(folder_id, [])
+        for sub in sorted(subfolders, key=lambda x: x.get("name", "").lower()):
+            process_folder(sub, folder_path, visited)
+
+    visited_folders = set()
+    root_folders = sorted(mapa.get(None, []), key=lambda x: x.get("name", "").lower())
+
+    for folder in root_folders:
+        process_folder(folder, outdir, visited_folders)
 
     print("\n== Videos not in any folder ==")
     for vid in list_all_videos(headers):
