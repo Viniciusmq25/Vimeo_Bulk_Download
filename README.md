@@ -17,6 +17,7 @@ Both scripts authenticate with Vimeo personal access tokens and share pagination
 - Per-video JSON metadata written next to each media file.
 - `--overwrite` flag to rebuild existing files when required.
 - Companion script for folder exploration (`vimeo_folder_structure.py`).
+- Built-in security measures to prevent credential leakage (see [SECURITY.md](SECURITY.md)).
 
 ## 📋 Prerequisites
 
@@ -38,17 +39,34 @@ python -m pip install requests tqdm tenacity
 
 ## 🔐 Setting the Vimeo Token
 
+⚠️ **SECURITY WARNING**: Never commit your Vimeo token to version control! Keep it secure and private.
+
 1. Go to [https://developer.vimeo.com/apps](https://developer.vimeo.com/apps) and create a Personal Access Token with scopes `public`, `private`, and `video_files`.
 2. Store the token securely; you will need it for API calls.
-3. Expose it via the `VIMEO_TOKEN` environment variable so the scripts can read it automatically. In PowerShell:
+3. **Recommended**: Copy `.env.example` to `.env` and add your token there:
+   ```bash
+   cp .env.example .env
+   # Edit .env and replace 'your_vimeo_token_here' with your actual token
+   ```
+   The `.env` file is already in `.gitignore` and won't be committed.
 
-```powershell
-# Session-only
-$env:VIMEO_TOKEN = "your_token_here"
+4. **Alternative**: Expose it via the `VIMEO_TOKEN` environment variable. In PowerShell:
+   ```powershell
+   # Session-only (recommended)
+   $env:VIMEO_TOKEN = "your_actual_token_here"
 
-# Optional: persist for future sessions
-setx VIMEO_TOKEN "your_token_here"
-```
+   # Optional: persist for future sessions (less secure)
+   setx VIMEO_TOKEN "your_actual_token_here"
+   ```
+
+   On Linux/Mac:
+   ```bash
+   # Session-only
+   export VIMEO_TOKEN="your_actual_token_here"
+
+   # Or add to ~/.bashrc or ~/.zshrc for persistence
+   echo 'export VIMEO_TOKEN="your_actual_token_here"' >> ~/.bashrc
+   ```
 
 ## 🚀 Running the Bulk Downloader
 
@@ -62,20 +80,20 @@ python vimeo_bulk_download.py --help
 
 With `VIMEO_TOKEN` already set:
 
-```powershell
-python vimeo_bulk_download.py --out "D:\Backup\Vimeo"
+```bash
+python vimeo_bulk_download.py --out "./vimeo_backup"
 ```
 
 ### Provide the token on the command line
 
-```powershell
-python vimeo_bulk_download.py --token "your_token_here" --out "D:\Backup\Vimeo"
+```bash
+python vimeo_bulk_download.py --token "your_actual_token_here" --out "./vimeo_backup"
 ```
 
 ### Force overwriting existing files
 
-```powershell
-python vimeo_bulk_download.py --out "D:\Backup\Vimeo" --overwrite
+```bash
+python vimeo_bulk_download.py --out "./vimeo_backup" --overwrite
 ```
 
 #### Available parameters
@@ -88,8 +106,8 @@ python vimeo_bulk_download.py --out "D:\Backup\Vimeo" --overwrite
 
 Use the helper script to inspect your projects:
 
-```powershell
-python vimeo_folder_structure.py --token "your_token_here"
+```bash
+python vimeo_folder_structure.py --token "your_actual_token_here"
 ```
 
 Useful parameters:
@@ -109,6 +127,27 @@ Useful parameters:
 - **Automatic retries:** HTTP calls and downloads rely on `tenacity` to recover from transient issues or rate limiting (`HTTP 429`).
 - **Download resume:** partially downloaded files continue from where they stopped.
 - **Best file selection:** prioritizes progressive MP4 streams with the highest resolution/bitrate; falls back to the best alternative link.
+
+## 🛡️ Security Best Practices
+
+**Protecting Your Credentials:**
+
+1. **Never commit tokens to Git**: Your `.env` file and any files containing tokens are already excluded via `.gitignore`
+2. **Use environment variables**: Store your `VIMEO_TOKEN` in environment variables, not in code
+3. **Revoke compromised tokens**: If you accidentally expose a token, immediately revoke it at [https://developer.vimeo.com/apps](https://developer.vimeo.com/apps) and generate a new one
+4. **Limit token scopes**: Only grant the minimum required scopes (`public`, `private`, `video_files`)
+5. **Don't share tokens**: Each user should have their own personal access token
+6. **Use .env files locally**: Copy `.env.example` to `.env` for local development (already in `.gitignore`)
+
+**What's Protected:**
+
+The `.gitignore` file prevents the following from being committed:
+- Environment files (`.env`, `.env.local`, etc.)
+- API tokens and credentials
+- Downloaded videos and backups
+- Metadata JSON files
+- Log files
+- Virtual environments
 
 ## 🛠️ Troubleshooting
 

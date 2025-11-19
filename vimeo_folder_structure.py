@@ -4,13 +4,22 @@ Requisitos:
 	pip install requests
 
 Exemplo de uso:
-	python vimeo_estrutura_pastas.py --token "SEU_TOKEN_AQUI"
+	python vimeo_estrutura_pastas.py --token "seu_token_vimeo_aqui"
 
 O token pode ser gerado em https://developer.vimeo.com/apps com escopos
 "public", "private" e "video_files". Se a variável de ambiente
 VIMEO_TOKEN estiver definida, o argumento --token é opcional.
 
-python vimeo_estrutura_pastas.py --token "VIMEO_TOKEN_HERE" --folders-only
+ATENÇÃO: NUNCA compartilhe ou commite seu token no Git!
+Use .env ou variáveis de ambiente para armazená-lo com segurança.
+
+Exemplos:
+	# Usando variável de ambiente:
+	export VIMEO_TOKEN="seu_token_vimeo_aqui"
+	python vimeo_folder_structure.py
+	
+	# Usando --token (apenas para testes, não recomendado):
+	python vimeo_folder_structure.py --token "seu_token_vimeo_aqui" --folders-only
 """
 
 from __future__ import annotations
