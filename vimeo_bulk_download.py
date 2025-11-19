@@ -13,7 +13,8 @@ Auth:
   - Create a **Personal Access Token** at https://developer.vimeo.com/apps
   - Scopes needed: public, private, video_files
   - Export it before running:
-        export VIMEO_TOKEN="your_token_here"
+        export VIMEO_TOKEN="your_actual_vimeo_token_here"
+  - Or use .env file (recommended - copy .env.example to .env)
 
 Usage:
   python vimeo_bulk_download.py --out "./vimeo_backup"
@@ -22,8 +23,15 @@ Notes:
   - Respects pagination; retries on transient network errors.
   - Skips files that already exist (by filename) unless --overwrite is passed.
   - Saves JSON metadata next to each video.
+  - NEVER commit your token to version control!
 
-  python vimeo_bulk_download.py --token "VIMEO_TOKEN_HERE" --out "./vimeo_backup" --overwrite
+Examples:
+  # Using environment variable:
+  export VIMEO_TOKEN="your_actual_token"
+  python vimeo_bulk_download.py --out "./vimeo_backup"
+  
+  # Using --token parameter:
+  python vimeo_bulk_download.py --token "your_actual_token" --out "./vimeo_backup" --overwrite
 """
 from __future__ import annotations
 import argparse

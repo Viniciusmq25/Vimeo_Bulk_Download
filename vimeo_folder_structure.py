@@ -1,16 +1,25 @@
-"""Imprime a estrutura de pastas e vídeos da conta do Vimeo.
+"""Prints the folder and video structure of a Vimeo account.
 
-Requisitos:
+Requirements:
 	pip install requests
 
-Exemplo de uso:
-	python vimeo_estrutura_pastas.py --token "SEU_TOKEN_AQUI"
+Usage example:
+	python vimeo_folder_structure.py --token "your_vimeo_token_here"
 
-O token pode ser gerado em https://developer.vimeo.com/apps com escopos
-"public", "private" e "video_files". Se a variável de ambiente
-VIMEO_TOKEN estiver definida, o argumento --token é opcional.
+The token can be generated at https://developer.vimeo.com/apps with scopes
+"public", "private", and "video_files". If the VIMEO_TOKEN environment
+variable is defined, the --token argument is optional.
 
-python vimeo_estrutura_pastas.py --token "VIMEO_TOKEN_HERE" --folders-only
+WARNING: NEVER share or commit your token to Git!
+Use .env or environment variables to store it securely.
+
+Examples:
+	# Using environment variable:
+	export VIMEO_TOKEN="your_vimeo_token_here"
+	python vimeo_folder_structure.py
+	
+	# Using --token (for testing only, not recommended):
+	python vimeo_folder_structure.py --token "your_vimeo_token_here" --folders-only
 """
 
 from __future__ import annotations
@@ -29,7 +38,7 @@ PAGE_SIZE = 100
 
 
 class VimeoError(Exception):
-	"""Erro de alto nível ao comunicar com a API do Vimeo."""
+	"""High-level error when communicating with the Vimeo API."""
 
 
 def bearer_headers(token: str) -> Dict[str, str]:
@@ -51,7 +60,7 @@ def api_get(
 			response = requests.get(url, headers=headers, params=params, timeout=60)
 		except req_exc.RequestException as exc:
 			if attempt == max_attempts:
-				raise VimeoError(f"Erro de rede ao chamar {url}: {exc}") from exc
+				raise VimeoError(f"Network error calling {url}: {exc}") from exc
 			time.sleep(attempt * 2)
 			continue
 
@@ -61,19 +70,19 @@ def api_get(
 			continue
 
 		if response.status_code == 401:
-			raise VimeoError("Token inválido ou sem permissões suficientes.")
+			raise VimeoError("Invalid token or insufficient permissions.")
 
 		if response.status_code >= 400:
 			raise VimeoError(
-				f"Erro {response.status_code} ao chamar {url}: {response.text.strip()}"
+				f"Error {response.status_code} calling {url}: {response.text.strip()}"
 			)
 
 		try:
 			return response.json()
 		except ValueError as exc:
-			raise VimeoError("Resposta inesperada da API (JSON inválido).") from exc
+			raise VimeoError("Unexpected API response (invalid JSON).") from exc
 
-	raise VimeoError("Falha ao obter resposta válida da API do Vimeo.")
+	raise VimeoError("Failed to get valid response from Vimeo API.")
 
 
 def paginate(
@@ -104,8 +113,8 @@ def paginate(
 		next_params = None
 
 
-def montar_mapa_pastas(headers: Dict[str, str]) -> Dict[Optional[str], List[Dict]]:
-	todos = list(
+def build_folder_map(headers: Dict[str, str]) -> Dict[Optional[str], List[Dict]]:
+	all_folders = list(
 		paginate(
 			f"{API}/me/projects",
 			headers,
@@ -119,9 +128,9 @@ def montar_mapa_pastas(headers: Dict[str, str]) -> Dict[Optional[str], List[Dict
 		)
 	)
 
-	mapa: Dict[Optional[str], List[Dict]] = {}
-	for folder in todos:
-		folder_id = extrair_id(folder.get("uri"))
+	folder_map: Dict[Optional[str], List[Dict]] = {}
+	for folder in all_folders:
+		folder_id = extract_id(folder.get("uri"))
 		folder["_id"] = folder_id
 
 		connections = folder.get("metadata", {}).get("connections")
@@ -136,16 +145,16 @@ def montar_mapa_pastas(headers: Dict[str, str]) -> Dict[Optional[str], List[Dict
 			parent_info = parent_info[0] if parent_info else {}
 
 		parent_uri = parent_info.get("uri") if isinstance(parent_info, dict) else None
-		parent_id = extrair_id(parent_uri) if parent_uri else None
+		parent_id = extract_id(parent_uri) if parent_uri else None
 		folder["_parent_id"] = parent_id
 
-		mapa.setdefault(parent_id, []).append(folder)
+		folder_map.setdefault(parent_id, []).append(folder)
 
-	mapa.setdefault(None, [])
-	return mapa
+	folder_map.setdefault(None, [])
+	return folder_map
 
 
-def listar_videos_da_pasta(folder_uri: str, headers: Dict[str, str]) -> List[Dict]:
+def list_folder_videos(folder_uri: str, headers: Dict[str, str]) -> List[Dict]:
 	return list(
 		paginate(
 			f"{API}{folder_uri}/videos",
@@ -155,7 +164,7 @@ def listar_videos_da_pasta(folder_uri: str, headers: Dict[str, str]) -> List[Dic
 	)
 
 
-def listar_videos_sem_pasta(headers: Dict[str, str]) -> List[Dict]:
+def list_videos_without_folder(headers: Dict[str, str]) -> List[Dict]:
 	videos: List[Dict] = []
 	for video in paginate(
 		f"{API}/me/videos",
@@ -173,171 +182,171 @@ def listar_videos_sem_pasta(headers: Dict[str, str]) -> List[Dict]:
 	return videos
 
 
-def obter_nome_conta(headers: Dict[str, str]) -> str:
+def get_account_name(headers: Dict[str, str]) -> str:
 	try:
-		perfil = api_get(f"{API}/me", headers, params={"fields": "name"})
+		profile = api_get(f"{API}/me", headers, params={"fields": "name"})
 	except VimeoError:
-		return "Conta Vimeo"
-	nome = perfil.get("name")
-	if nome:
-		return f"Conta Vimeo ({nome})"
-	return "Conta Vimeo"
+		return "Vimeo Account"
+	name = profile.get("name")
+	if name:
+		return f"Vimeo Account ({name})"
+	return "Vimeo Account"
 
 
-def nome_limpo(valor: Optional[str], fallback: str) -> str:
-	if not valor:
+def clean_name(value: Optional[str], fallback: str) -> str:
+	if not value:
 		return fallback
-	return " ".join(valor.split())
+	return " ".join(value.split())
 
 
-def extrair_id(uri: Optional[str]) -> str:
+def extract_id(uri: Optional[str]) -> str:
 	if not uri:
 		return "?"
 	return uri.rstrip("/").split("/")[-1]
 
 
-def ordenar_por_nome(itens: Sequence[Dict]) -> List[Dict]:
-	return sorted(itens, key=lambda item: nome_limpo(item.get("name"), "").lower())
+def sort_by_name(items: Sequence[Dict]) -> List[Dict]:
+	return sorted(items, key=lambda item: clean_name(item.get("name"), "").lower())
 
 
-def imprimir_grupo_videos(
+def print_video_group(
 	videos: List[Dict],
-	prefixo: str,
+	prefix: str,
 ) -> None:
-	for indice, video in enumerate(videos):
-		ultimo = indice == len(videos) - 1
-		conector = "`-- " if ultimo else "|-- "
-		titulo = nome_limpo(video.get("name"), f"video {extrair_id(video.get('uri'))}")
-		vid = extrair_id(video.get("uri"))
-		print(f"{prefixo}{conector}{titulo} [video {vid}]")
+	for index, video in enumerate(videos):
+		is_last = index == len(videos) - 1
+		connector = "`-- " if is_last else "|-- "
+		title = clean_name(video.get("name"), f"video {extract_id(video.get('uri'))}")
+		vid = extract_id(video.get("uri"))
+		print(f"{prefix}{connector}{title} [video {vid}]")
 
 
-def imprimir_pasta(
-	pasta: Dict,
-	prefixo: str,
-	mapa: Dict[Optional[str], List[Dict]],
+def print_folder(
+	folder: Dict,
+	prefix: str,
+	folder_map: Dict[Optional[str], List[Dict]],
 	headers: Dict[str, str],
-	incluir_videos: bool,
-	visitados: set[str],
+	include_videos: bool,
+	visited: set[str],
 ) -> None:
-	uri = pasta.get("uri")
-	if not uri or uri in visitados:
+	uri = folder.get("uri")
+	if not uri or uri in visited:
 		return
-	visitados.add(uri)
+	visited.add(uri)
 
-	folder_id = pasta.get("_id")
-	subpastas = ordenar_por_nome(mapa.get(folder_id, []))
-	itens: List[Tuple[str, object]] = [("pasta", item) for item in subpastas]
+	folder_id = folder.get("_id")
+	subfolders = sort_by_name(folder_map.get(folder_id, []))
+	items: List[Tuple[str, object]] = [("folder", item) for item in subfolders]
 
 	videos: List[Dict] = []
-	if incluir_videos:
-		videos = listar_videos_da_pasta(uri, headers)
+	if include_videos:
+		videos = list_folder_videos(uri, headers)
 		for video in videos:
-			itens.append(("video", video))
+			items.append(("video", video))
 
-	for indice, (tipo, conteudo) in enumerate(itens):
-		ultimo = indice == len(itens) - 1
-		conector = "`-- " if ultimo else "|-- "
-		proximo_prefixo = prefixo + ("    " if ultimo else "|   ")
+	for index, (item_type, content) in enumerate(items):
+		is_last = index == len(items) - 1
+		connector = "`-- " if is_last else "|-- "
+		next_prefix = prefix + ("    " if is_last else "|   ")
 
-		if tipo == "pasta":
-			nome = nome_limpo(
-				conteudo.get("name"),
-				f"pasta {extrair_id(conteudo.get('uri'))}",
+		if item_type == "folder":
+			name = clean_name(
+				content.get("name"),
+				f"folder {extract_id(content.get('uri'))}",
 			)
-			pid = extrair_id(conteudo.get("uri"))
-			print(f"{prefixo}{conector}{nome} [pasta {pid}]")
-			imprimir_pasta(
-				conteudo,
-				proximo_prefixo,
-				mapa,
+			pid = extract_id(content.get("uri"))
+			print(f"{prefix}{connector}{name} [folder {pid}]")
+			print_folder(
+				content,
+				next_prefix,
+				folder_map,
 				headers,
-				incluir_videos,
-				visitados,
+				include_videos,
+				visited,
 			)
 		else:
-			titulo = nome_limpo(
-				conteudo.get("name"),
-				f"video {extrair_id(conteudo.get('uri'))}",
+			title = clean_name(
+				content.get("name"),
+				f"video {extract_id(content.get('uri'))}",
 			)
-			vid = extrair_id(conteudo.get("uri"))
-			print(f"{prefixo}{conector}{titulo} [video {vid}]")
+			vid = extract_id(content.get("uri"))
+			print(f"{prefix}{connector}{title} [video {vid}]")
 
 
-def imprimir_estrutura(
+def print_structure(
 	headers: Dict[str, str],
-	incluir_videos: bool,
+	include_videos: bool,
 ) -> None:
-	mapa = montar_mapa_pastas(headers)
-	topo = ordenar_por_nome(mapa.get(None, []))
-	raiz = obter_nome_conta(headers)
-	print(raiz)
+	folder_map = build_folder_map(headers)
+	top_level = sort_by_name(folder_map.get(None, []))
+	root = get_account_name(headers)
+	print(root)
 
-	itens_topo: List[Tuple[str, object]] = [("pasta", pasta) for pasta in topo]
+	top_items: List[Tuple[str, object]] = [("folder", folder) for folder in top_level]
 
-	videos_sem_pasta: List[Dict] = []
-	if incluir_videos:
-		videos_sem_pasta = listar_videos_sem_pasta(headers)
-		if videos_sem_pasta:
-			itens_topo.append(("sem_pasta", videos_sem_pasta))
+	videos_without_folder: List[Dict] = []
+	if include_videos:
+		videos_without_folder = list_videos_without_folder(headers)
+		if videos_without_folder:
+			top_items.append(("no_folder", videos_without_folder))
 
-	visitados: set[str] = set()
+	visited: set[str] = set()
 
-	for indice, (tipo, conteudo) in enumerate(itens_topo):
-		ultimo = indice == len(itens_topo) - 1
-		conector = "`-- " if ultimo else "|-- "
-		prefixo = ""
-		proximo_prefixo = "    " if ultimo else "|   "
+	for index, (item_type, content) in enumerate(top_items):
+		is_last = index == len(top_items) - 1
+		connector = "`-- " if is_last else "|-- "
+		prefix = ""
+		next_prefix = "    " if is_last else "|   "
 
-		if tipo == "pasta":
-			nome = nome_limpo(
-				conteudo.get("name"),
-				f"pasta {extrair_id(conteudo.get('uri'))}",
+		if item_type == "folder":
+			name = clean_name(
+				content.get("name"),
+				f"folder {extract_id(content.get('uri'))}",
 			)
-			pid = extrair_id(conteudo.get("uri"))
-			print(f"{conector}{nome} [pasta {pid}]")
-			imprimir_pasta(
-				conteudo,
-				proximo_prefixo,
-				mapa,
+			pid = extract_id(content.get("uri"))
+			print(f"{connector}{name} [folder {pid}]")
+			print_folder(
+				content,
+				next_prefix,
+				folder_map,
 				headers,
-				incluir_videos,
-				visitados,
+				include_videos,
+				visited,
 			)
 		else:
-			print(f"{conector}Sem pasta")
-			imprimir_grupo_videos(conteudo, proximo_prefixo)
+			print(f"{connector}No folder")
+			print_video_group(content, next_prefix)
 
 
-def criar_parser() -> argparse.ArgumentParser:
+def create_parser() -> argparse.ArgumentParser:
 	parser = argparse.ArgumentParser(
-		description="Imprime a árvore de pastas e vídeos da conta do Vimeo.",
+		description="Prints the folder and video tree of a Vimeo account.",
 	)
 	parser.add_argument(
 		"--token",
 		type=str,
 		default=os.environ.get("VIMEO_TOKEN"),
-		help="Token pessoal do Vimeo (escopos public, private, video_files).",
+		help="Vimeo personal access token (scopes: public, private, video_files).",
 	)
 	parser.add_argument(
 		"--folders-only",
 		action="store_true",
-		help="Não listar vídeos, apenas a hierarquia de pastas.",
+		help="Don't list videos, only the folder hierarchy.",
 	)
 	return parser
 
 
 def main() -> None:
-	parser = criar_parser()
+	parser = create_parser()
 	args = parser.parse_args()
 	if not args.token:
-		parser.error("Informe --token ou defina a variável de ambiente VIMEO_TOKEN.")
+		parser.error("Provide --token or set the VIMEO_TOKEN environment variable.")
 
 	headers = bearer_headers(args.token)
 	try:
-		imprimir_estrutura(headers, incluir_videos=not args.folders_only)
+		print_structure(headers, include_videos=not args.folders_only)
 	except VimeoError as exc:
-		print(f"Erro: {exc}", file=sys.stderr)
+		print(f"Error: {exc}", file=sys.stderr)
 		sys.exit(1)
 
 
