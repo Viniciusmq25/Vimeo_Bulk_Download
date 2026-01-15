@@ -27,12 +27,12 @@ Both scripts authenticate with Vimeo personal access tokens and share pagination
   - `requests`
   - `tqdm`
   - `tenacity`
+  - `python-dotenv`
 
 Install them with:
 
 ```powershell
-python -m pip install --upgrade pip
-python -m pip install requests tqdm tenacity
+python -m pip install -r requirements.txt
 ```
 
 > **Tip:** consider creating a virtual environment first (`python -m venv .venv`).
@@ -44,13 +44,17 @@ python -m pip install requests tqdm tenacity
 1. Go to [https://developer.vimeo.com/apps](https://developer.vimeo.com/apps) and create a Personal Access Token with scopes `public`, `private`, and `video_files`.
 2. Store the token securely; you will need it for API calls.
 3. **Recommended**: Copy `.env.example` to `.env` and add your token there:
+
    ```bash
    cp .env.example .env
    # Edit .env and replace 'your_vimeo_token_here' with your actual token
    ```
+
+   The script automatically monitors the `.env` file using `python-dotenv`, so no manual export is needed if you use this method.
    The `.env` file is already in `.gitignore` and won't be committed.
 
 4. **Alternative**: Expose it via the `VIMEO_TOKEN` environment variable. In PowerShell:
+
    ```powershell
    # Session-only (recommended)
    $env:VIMEO_TOKEN = "your_actual_token_here"
@@ -60,6 +64,7 @@ python -m pip install requests tqdm tenacity
    ```
 
    On Linux/Mac:
+
    ```bash
    # Session-only
    export VIMEO_TOKEN="your_actual_token_here"
@@ -142,6 +147,7 @@ Useful parameters:
 **What's Protected:**
 
 The `.gitignore` file prevents the following from being committed:
+
 - Environment files (`.env`, `.env.local`, etc.)
 - API tokens and credentials
 - Downloaded videos and backups
@@ -151,18 +157,18 @@ The `.gitignore` file prevents the following from being committed:
 
 ## 🛠️ Troubleshooting
 
-| Symptom | Likely cause | Suggested action |
-| --- | --- | --- |
-| `Error: provide --token or set VIMEO_TOKEN` | Token missing | Pass `--token` or set `VIMEO_TOKEN`. |
-| `401 Unauthorized` | Invalid token or wrong scopes | Generate a fresh token with the correct scopes. |
-| `Rate limited; retrying` | Too many requests in a short window | Wait; the script honors `Retry-After` automatically. |
-| Downloads stop halfway | Connection drops | Run the script again; it resumes from the last byte. |
-| Duplicate files remain | `--overwrite` not provided | Add `--overwrite` to replace existing files. |
+| Symptom                                     | Likely cause                        | Suggested action                                     |
+| ------------------------------------------- | ----------------------------------- | ---------------------------------------------------- |
+| `Error: provide --token or set VIMEO_TOKEN` | Token missing                       | Pass `--token` or set `VIMEO_TOKEN`.                 |
+| `401 Unauthorized`                          | Invalid token or wrong scopes       | Generate a fresh token with the correct scopes.      |
+| `Rate limited; retrying`                    | Too many requests in a short window | Wait; the script honors `Retry-After` automatically. |
+| Downloads stop halfway                      | Connection drops                    | Run the script again; it resumes from the last byte. |
+| Duplicate files remain                      | `--overwrite` not provided          | Add `--overwrite` to replace existing files.         |
 
 ## ✅ Quick checklist before running
 
 - [ ] Python 3.8+ installed
-- [ ] Dependencies installed (`pip install requests tqdm tenacity`)
+- [ ] Dependencies installed (`pip install -r requirements.txt`)
 - [ ] Vimeo token with `public`, `private`, `video_files`
 - [ ] `VIMEO_TOKEN` exported or `--token` ready
 - [ ] Destination folder with enough free space
@@ -170,7 +176,7 @@ The `.gitignore` file prevents the following from being committed:
 ## 📦 Project layout
 
 ```text
-Vimeo_API/
+Vimeo_Bulk_Download/
 ├── vimeo_bulk_download.py      # Main download script
 ├── vimeo_folder_structure.py   # Utility that prints the project tree
 ├── videos/                     # Optional directory for downloads
@@ -179,6 +185,5 @@ Vimeo_API/
 
 ## 🧭 Suggested next steps
 
-- Create a `requirements.txt` to simplify dependency installation.
 - Add automated tests (e.g., mocked API responses) for better stability.
 - Package the script as a CLI (`pipx`/`setuptools`) for easier distribution.

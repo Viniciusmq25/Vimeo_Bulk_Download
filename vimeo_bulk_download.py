@@ -37,7 +37,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
+vimeo bulk downloadimport os
 from pathlib import Path
 from urllib.parse import urlparse
 import sys
@@ -48,6 +48,9 @@ import requests
 from requests import exceptions as req_exc
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 from tqdm import tqdm
+from dotenv import load_dotenv
+
+load_dotenv()
 
 API = "https://api.vimeo.com"
 PAGE_SIZE = 50  # Vimeo API max is typically 100; 50 is a safe default

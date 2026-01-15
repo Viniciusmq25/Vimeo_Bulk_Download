@@ -32,6 +32,9 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import requests
 from requests import exceptions as req_exc
+from dotenv import load_dotenv
+
+load_dotenv()
 
 API = "https://api.vimeo.com"
 PAGE_SIZE = 100
